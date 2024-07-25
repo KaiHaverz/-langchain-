@@ -10,6 +10,7 @@ from langchain_community.chat_models import ChatZhipuAI
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, TextLoader
 from langchain_community.vectorstores import FAISS
 from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -94,8 +95,20 @@ class Chat:
         chunked_documents = self.text_splitter.split_documents(documents=documents)
         self.vector_store = FAISS.from_documents(documents=chunked_documents, embedding=embeddings)
 
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """
+        You are an intelligent question answering robot, \n
+        and when I ask a question, you will provide me with an answer by calling different tools in the agent\n
+        and referencing chat_history.\n
+        You will prioritize using tools and then use your knowledge base if information cannot be retrieved\n
+        Answer the user's questions based on the below context:\n
+        {context}\n
+        """),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("user", "{input}"),
+    ])
     # 创建检索链
-    def create_retriever_chain(self):
+    def create_retriever_chain(self, prompt):
         retriever = self.vector_store.as_retriever()
         retriever_chain = create_history_aware_retriever(self.chat_model, retriever, prompt)
         document_chain = create_stuff_documents_chain(self.chat_model, prompt)
@@ -174,53 +187,53 @@ class Chat:
         return ai_message
 
 # 调用主函数测试下
-# def main():
-#     first = True
-#     chat = Chat()
-#     print("对话开始")
-#
-#     # 读取历史记录数组
-#     history_array = input("请输入历史记录数组（JSON格式或输入'pass'跳过）：")
-#     if history_array.lower() != "pass":
-#         try:
-#             history = json.loads(history_array)
-#         except json.JSONDecodeError:
-#             print("Json 格式错误")
-#             return
-#     else:
-#         history = []
-#
-#     # 读取文档所在文件夹路径
-#     base_dir = input("请输入文档所在文件夹路径或输入'pass'跳过：")
-#
+def main():
+    first = True
+    chat = Chat()
+    print("对话开始")
 
+    # 读取历史记录数组
+    history_array = input("请输入历史记录数组（JSON格式或输入'pass'跳过）：")
+    if history_array.lower() != "pass":
+        try:
+            history = json.loads(history_array)
+        except json.JSONDecodeError:
+            print("Json 格式错误")
+            return
+    else:
+        history = []
 
-
-#
-#     while True:
-#         human_message = input("请输入问题（输入 '结束' 结束）：")
-#         if human_message == "结束":
-#             break
-#
-#         if first:
-#             ai_message = chat.isFirst(base_dir, history, human_message)
-#             first = False
-#         else:
-#             ai_message = chat.notFirst(human_message)
-#
-#         # 处理并输出 AI 消息
-#         print("回答：", ai_message)
-#
-#
+    # 读取文档所在文件夹路径
+    base_dir = input("请输入文档所在文件夹路径或输入'pass'跳过：")
 
 
 
 
-#     print("对话已结束")
-#     chat.chat_history.clear()
-#
-# if __name__ == "__main__":
-#     main()
+
+    while True:
+        human_message = input("请输入问题（输入 '结束' 结束）：")
+        if human_message == "结束":
+            break
+
+        if first:
+            ai_message = chat.isFirst(base_dir, history, human_message)
+            first = False
+        else:
+            ai_message = chat.notFirst(human_message)
+
+        # 处理并输出 AI 消息
+        print("回答：", ai_message)
+
+
+
+
+
+
+    print("对话已结束")
+    chat.chat_history.clear()
+
+if __name__ == "__main__":
+    main()
 
 
 
